@@ -1,5 +1,6 @@
 import streamlit as st
-from mistralai import Mistral
+from mistralai.client import MistralClient
+from mistralai.models.chat_completion import ChatMessage
 import json
 import re
 import os
@@ -12,13 +13,13 @@ st.set_page_config(page_title="Rural Infra AI", layout="wide")
 # -----------------------------
 # Mistral API Setup
 # -----------------------------
-api_key = os.getenv("MISTRAL_API_KEY")  # ✅ correct way
+api_key = os.getenv("MISTRAL_API_KEY")
 
 if not api_key:
     st.warning("⚠️ Add your Mistral API key in Streamlit secrets.")
     st.stop()
 
-client = Mistral(api_key=api_key)
+client = MistralClient(api_key=api_key)
 
 # -----------------------------
 # Data
@@ -100,21 +101,21 @@ def extract_json_safe(text):
         return None
 
 # -----------------------------
-# Mistral API Call (FIXED)
+# API Call (COMPATIBLE)
 # -----------------------------
 def run_analysis(prompt):
     try:
-        response = client.chat.complete(
+        response = client.chat(
             model="mistral-small-latest",
             messages=[
-                {"role": "system", "content": "Return only valid JSON."},
-                {"role": "user", "content": prompt}
+                ChatMessage(role="system", content="Return only valid JSON."),
+                ChatMessage(role="user", content=prompt)
             ],
             temperature=0,
             max_tokens=500
         )
 
-        raw = response.choices[0].message.content
+        raw = response.choices[0].message.content.strip()
         parsed = extract_json_safe(raw)
 
         return parsed, raw
