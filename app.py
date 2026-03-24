@@ -4,7 +4,7 @@ import json
 import re
 import os
 
-st.write("Imports working ✅")
+st.title("App is working ✅")
 # -----------------------------
 # Config
 # -----------------------------
