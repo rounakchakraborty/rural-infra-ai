@@ -1,6 +1,5 @@
 import streamlit as st
-from mistralai.client import MistralClient
-from mistralai.models.chat_completion import ChatMessage
+from mistralai import Mistral
 import json
 import re
 import os
@@ -13,16 +12,13 @@ st.set_page_config(page_title="Rural Infra AI", layout="wide")
 # -----------------------------
 # Mistral API Setup
 # -----------------------------
-api_key = os.getenv("W4NVrg5DWbRbWMKjYIYYIwkf10zzoFCw")
+api_key = os.getenv("MISTRAL_API_KEY")  # ✅ correct way
 
 if not api_key:
-    api_key = "W4NVrg5DWbRbWMKjYIYYIwkf10zzoFCw"
-
-if not api_key or "FAKE" in api_key:
-    st.warning("⚠️ Add your Mistral API key.")
+    st.warning("⚠️ Add your Mistral API key in Streamlit secrets.")
     st.stop()
 
-client = MistralClient(api_key=api_key)
+client = Mistral(api_key=api_key)
 
 # -----------------------------
 # Data
@@ -88,7 +84,7 @@ Return ONLY valid JSON. No text outside JSON.
 """
 
 # -----------------------------
-# Safe JSON Parser
+# JSON Parser
 # -----------------------------
 def extract_json_safe(text):
     try:
@@ -104,25 +100,24 @@ def extract_json_safe(text):
         return None
 
 # -----------------------------
-# Mistral API Call
+# Mistral API Call (FIXED)
 # -----------------------------
 def run_analysis(prompt):
     try:
-        response = client.chat(
+        response = client.chat.complete(
             model="mistral-small-latest",
             messages=[
-                ChatMessage(role="system", content="Return only valid JSON."),
-                ChatMessage(role="user", content=prompt)
+                {"role": "system", "content": "Return only valid JSON."},
+                {"role": "user", "content": prompt}
             ],
             temperature=0,
             max_tokens=500
         )
 
-        raw = response.choices[0].message.content.strip()
-
+        raw = response.choices[0].message.content
         parsed = extract_json_safe(raw)
 
-        return parsed, raw  # return BOTH
+        return parsed, raw
 
     except Exception as e:
         return None, str(e)
@@ -166,7 +161,6 @@ if st.button("Run AI Analysis"):
 
         st.success("Analysis Complete")
 
-        # ✅ CASE 1: JSON SUCCESS
         if result:
             st.subheader("📍 District Insight")
             st.write(result.get("districtInsight"))
@@ -185,9 +179,7 @@ if st.button("Run AI Analysis"):
             for r in result.get("risks", []):
                 st.write("•", r)
 
-        # ⚠️ CASE 2: JSON FAIL → SHOW RAW OUTPUT
         else:
             st.warning("⚠️ Could not parse structured output. Showing raw response:")
-
             st.subheader("📄 AI Response")
             st.write(raw_output)
