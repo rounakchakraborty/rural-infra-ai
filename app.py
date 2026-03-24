@@ -1,6 +1,5 @@
 import streamlit as st
-from mistralai.client import MistralClient
-from mistralai.models.chat_completion import ChatMessage
+from mistralai import Mistral
 import json
 import re
 import os
@@ -11,7 +10,7 @@ import os
 st.set_page_config(page_title="Rural Infra AI", layout="wide")
 
 # -----------------------------
-# Mistral API Setup
+# API Setup
 # -----------------------------
 api_key = os.getenv("MISTRAL_API_KEY")
 
@@ -19,7 +18,7 @@ if not api_key:
     st.warning("⚠️ Add your Mistral API key in Streamlit secrets.")
     st.stop()
 
-client = MistralClient(api_key=api_key)
+client = Mistral(api_key=api_key)
 
 # -----------------------------
 # Data
@@ -72,15 +71,14 @@ Challenges: {', '.join(challenges)}
 
 {financials}
 
-CRITICAL:
-Return ONLY valid JSON. No text outside JSON.
+Return ONLY valid JSON:
 
 {{
-  "topRecommendation": "string",
-  "reasoningBullets": ["string"],
-  "risks": ["string"],
-  "financialNarrative": "string",
-  "districtInsight": "string"
+  "topRecommendation": "",
+  "reasoningBullets": [],
+  "risks": [],
+  "financialNarrative": "",
+  "districtInsight": ""
 }}
 """
 
@@ -91,7 +89,6 @@ def extract_json_safe(text):
     try:
         return json.loads(text)
     except:
-        text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
         match = re.search(r"\{.*\}", text, re.DOTALL)
         if match:
             try:
@@ -101,21 +98,19 @@ def extract_json_safe(text):
         return None
 
 # -----------------------------
-# API Call (COMPATIBLE)
+# API Call
 # -----------------------------
 def run_analysis(prompt):
     try:
-        response = client.chat(
+        response = client.chat.complete(
             model="mistral-small-latest",
             messages=[
-                ChatMessage(role="system", content="Return only valid JSON."),
-                ChatMessage(role="user", content=prompt)
+                {"role": "user", "content": prompt}
             ],
-            temperature=0,
-            max_tokens=500
+            temperature=0
         )
 
-        raw = response.choices[0].message.content.strip()
+        raw = response.choices[0].message.content
         parsed = extract_json_safe(raw)
 
         return parsed, raw
@@ -160,9 +155,9 @@ if st.button("Run AI Analysis"):
         with st.spinner("Running analysis..."):
             result, raw_output = run_analysis(prompt)
 
-        st.success("Analysis Complete")
-
         if result:
+            st.success("Analysis Complete")
+
             st.subheader("📍 District Insight")
             st.write(result.get("districtInsight"))
 
@@ -181,6 +176,5 @@ if st.button("Run AI Analysis"):
                 st.write("•", r)
 
         else:
-            st.warning("⚠️ Could not parse structured output. Showing raw response:")
-            st.subheader("📄 AI Response")
+            st.error("⚠️ Failed to parse response")
             st.write(raw_output)
